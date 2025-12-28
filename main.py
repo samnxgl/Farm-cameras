@@ -89,32 +89,38 @@ def process_snapshot(
     if Config.SAVE_IMAGES:
         camera.save_snapshot(image_data)
 
-    # Analyze for animals
-    logger.info("Analyzing image for animals...")
+    # Analyze for animals and vehicles
+    logger.info("Analyzing image for animals and vehicles...")
     result = detector.analyze_image(image_data)
 
     if result is None:
         logger.warning("Failed to analyze image, skipping this cycle")
         return
 
-    # Log the result
-    if result.animals_detected:
-        logger.info(
-            f"Animals detected: {', '.join(result.animal_types)} "
-            f"(confidence: {result.confidence})"
-        )
+    # Log the result and send alerts
+    if result.animals_detected or result.vehicles_detected:
+        if result.animals_detected:
+            logger.info(
+                f"Animals detected: {', '.join(result.animal_types)} "
+                f"(confidence: {result.confidence})"
+            )
+        if result.vehicles_detected:
+            logger.info(
+                f"Vehicles detected: {', '.join(result.vehicle_types)} "
+                f"(confidence: {result.confidence})"
+            )
 
         # Format and send alert
         message = format_detection_message(result)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"animal_detected_{timestamp}.jpg"
+        filename = f"detection_{timestamp}.jpg"
 
         if notifier.send_alert(message, image_data, filename):
             logger.info("Alert sent to Slack successfully")
         else:
             logger.error("Failed to send alert to Slack")
     else:
-        logger.info("No animals detected in this snapshot")
+        logger.info("No animals or vehicles detected in this snapshot")
 
 
 def run_monitor(skip_startup_message: bool = False) -> None:
