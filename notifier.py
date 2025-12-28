@@ -95,24 +95,31 @@ class SlackNotifier:
             logger.error(f"Failed to upload image to Slack: {response}")
             return False
 
-    def send_startup_message(self) -> bool:
+    def send_startup_message(self, camera_list: str = "") -> bool:
         """Send a startup notification to indicate the system is running."""
-        message = (
-            "🟢 *Farm Camera Monitor Started*\n\n"
-            f"Monitoring camera at `{Config.HIKVISION_IP}` "
-            f"every {Config.CAPTURE_INTERVAL_SECONDS} seconds.\n"
-            "You will receive alerts when animals are detected."
-        )
+        if camera_list:
+            message = (
+                "🟢 *Multi-Camera Detection System Started*\n\n"
+                f"*Monitoring cameras:* {camera_list}\n"
+                f"*Interval:* Every {Config.CAPTURE_INTERVAL_SECONDS} seconds\n\n"
+                "You will receive alerts when activity is detected."
+            )
+        else:
+            message = (
+                "🟢 *Camera Detection System Started*\n\n"
+                f"Monitoring every {Config.CAPTURE_INTERVAL_SECONDS} seconds.\n"
+                "You will receive alerts when activity is detected."
+            )
         return self.send_alert(message)
 
     def send_shutdown_message(self) -> bool:
         """Send a shutdown notification."""
-        message = "🔴 *Farm Camera Monitor Stopped*"
+        message = "🔴 *Camera Detection System Stopped*"
         return self.send_alert(message)
 
     def send_error_message(self, error: str) -> bool:
         """Send an error notification."""
-        message = f"⚠️ *Farm Camera Monitor Error*\n\n```{error}```"
+        message = f"⚠️ *Camera Detection System Error*\n\n```{error}```"
         return self.send_alert(message)
 
     def test_connection(self) -> bool:

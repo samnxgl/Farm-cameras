@@ -1,24 +1,50 @@
 """
-Configuration management for the Farm Camera Animal Detection System.
+Configuration management for the Farm Camera Detection System.
+Supports multiple cameras with different detection profiles.
 """
 
 import os
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
+
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
 
 
+@dataclass
+class CameraConfig:
+    """Configuration for a single camera."""
+
+    name: str
+    ip: str
+    port: int
+    username: str
+    password: str
+    channel: int
+    profile: str  # Detection profile: "farm", "entrance"
+    enabled: bool = True
+
+    def get_base_url(self) -> str:
+        """Get the base URL for the camera."""
+        return f"http://{self.ip}:{self.port}"
+
+    def get_snapshot_url(self) -> str:
+        """Get the URL for capturing a snapshot."""
+        return f"{self.get_base_url()}/ISAPI/Streaming/channels/{self.channel}01/picture"
+
+    def get_rtsp_url(self) -> str:
+        """Get the RTSP URL for streaming."""
+        return (
+            f"rtsp://{self.username}:{self.password}@"
+            f"{self.ip}:554/Streaming/Channels/{self.channel}01"
+        )
+
+
 class Config:
     """Application configuration loaded from environment variables."""
-
-    # Hikvision Camera Settings
-    HIKVISION_IP: str = os.getenv("HIKVISION_IP", "192.168.1.100")
-    HIKVISION_PORT: int = int(os.getenv("HIKVISION_PORT", "80"))
-    HIKVISION_USERNAME: str = os.getenv("HIKVISION_USERNAME", "admin")
-    HIKVISION_PASSWORD: str = os.getenv("HIKVISION_PASSWORD", "")
-    HIKVISION_CHANNEL: int = int(os.getenv("HIKVISION_CHANNEL", "1"))
 
     # Anthropic API
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
@@ -32,39 +58,93 @@ class Config:
     SAVE_IMAGES: bool = os.getenv("SAVE_IMAGES", "true").lower() == "true"
     IMAGES_DIR: Path = Path(os.getenv("IMAGES_DIR", "./captured_images"))
 
+    # Camera configurations (loaded dynamically)
+    CAMERAS: list[CameraConfig] = []
+
+    @classmethod
+    def load_cameras(cls) -> list[CameraConfig]:
+        """Load camera configurations from environment variables."""
+        cameras = []
+
+        # Camera 1 (Farm Camera) - supports legacy HIKVISION_* variables
+        cam1_ip = os.getenv("CAMERA_1_IP", os.getenv("HIKVISION_IP", ""))
+        if cam1_ip:
+            cameras.append(
+                CameraConfig(
+                    name=os.getenv("CAMERA_1_NAME", "Farm Camera"),
+                    ip=cam1_ip,
+                    port=int(os.getenv("CAMERA_1_PORT", os.getenv("HIKVISION_PORT", "80"))),
+                    username=os.getenv("CAMERA_1_USERNAME", os.getenv("HIKVISION_USERNAME", "admin")),
+                    password=os.getenv("CAMERA_1_PASSWORD", os.getenv("HIKVISION_PASSWORD", "")),
+                    channel=int(os.getenv("CAMERA_1_CHANNEL", os.getenv("HIKVISION_CHANNEL", "1"))),
+                    profile=os.getenv("CAMERA_1_PROFILE", "farm"),
+                    enabled=os.getenv("CAMERA_1_ENABLED", "true").lower() == "true",
+                )
+            )
+
+        # Camera 2 (Home Entrance)
+        cam2_ip = os.getenv("CAMERA_2_IP", "")
+        if cam2_ip:
+            cameras.append(
+                CameraConfig(
+                    name=os.getenv("CAMERA_2_NAME", "Home Entrance"),
+                    ip=cam2_ip,
+                    port=int(os.getenv("CAMERA_2_PORT", "80")),
+                    username=os.getenv("CAMERA_2_USERNAME", "admin"),
+                    password=os.getenv("CAMERA_2_PASSWORD", ""),
+                    channel=int(os.getenv("CAMERA_2_CHANNEL", "1")),
+                    profile=os.getenv("CAMERA_2_PROFILE", "entrance"),
+                    enabled=os.getenv("CAMERA_2_ENABLED", "true").lower() == "true",
+                )
+            )
+
+        # Camera 3 (optional)
+        cam3_ip = os.getenv("CAMERA_3_IP", "")
+        if cam3_ip:
+            cameras.append(
+                CameraConfig(
+                    name=os.getenv("CAMERA_3_NAME", "Camera 3"),
+                    ip=cam3_ip,
+                    port=int(os.getenv("CAMERA_3_PORT", "80")),
+                    username=os.getenv("CAMERA_3_USERNAME", "admin"),
+                    password=os.getenv("CAMERA_3_PASSWORD", ""),
+                    channel=int(os.getenv("CAMERA_3_CHANNEL", "1")),
+                    profile=os.getenv("CAMERA_3_PROFILE", "farm"),
+                    enabled=os.getenv("CAMERA_3_ENABLED", "true").lower() == "true",
+                )
+            )
+
+        cls.CAMERAS = cameras
+        return cameras
+
     @classmethod
     def validate(cls) -> list[str]:
         """Validate that all required configuration is present."""
         errors = []
 
-        if not cls.HIKVISION_IP:
-            errors.append("HIKVISION_IP is required")
-        if not cls.HIKVISION_PASSWORD:
-            errors.append("HIKVISION_PASSWORD is required")
         if not cls.ANTHROPIC_API_KEY:
             errors.append("ANTHROPIC_API_KEY is required")
         if not cls.SLACK_BOT_TOKEN:
             errors.append("SLACK_BOT_TOKEN is required")
 
+        # Load cameras if not already loaded
+        if not cls.CAMERAS:
+            cls.load_cameras()
+
+        if not cls.CAMERAS:
+            errors.append("At least one camera must be configured")
+
+        for cam in cls.CAMERAS:
+            if not cam.ip:
+                errors.append(f"Camera '{cam.name}' is missing IP address")
+            if not cam.password:
+                errors.append(f"Camera '{cam.name}' is missing password")
+
         return errors
 
     @classmethod
-    def get_camera_base_url(cls) -> str:
-        """Get the base URL for the Hikvision camera."""
-        return f"http://{cls.HIKVISION_IP}:{cls.HIKVISION_PORT}"
-
-    @classmethod
-    def get_snapshot_url(cls) -> str:
-        """Get the URL for capturing a snapshot from the camera."""
-        return (
-            f"{cls.get_camera_base_url()}/ISAPI/Streaming/channels/"
-            f"{cls.HIKVISION_CHANNEL}01/picture"
-        )
-
-    @classmethod
-    def get_rtsp_url(cls) -> str:
-        """Get the RTSP URL for streaming (alternative method)."""
-        return (
-            f"rtsp://{cls.HIKVISION_USERNAME}:{cls.HIKVISION_PASSWORD}@"
-            f"{cls.HIKVISION_IP}:554/Streaming/Channels/{cls.HIKVISION_CHANNEL}01"
-        )
+    def get_enabled_cameras(cls) -> list[CameraConfig]:
+        """Get list of enabled cameras."""
+        if not cls.CAMERAS:
+            cls.load_cameras()
+        return [cam for cam in cls.CAMERAS if cam.enabled]
