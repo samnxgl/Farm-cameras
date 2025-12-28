@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  farm-camera:
+    build: .
+    container_name: farm-camera-monitor
+    restart: unless-stopped
+    environment:
+      # Hikvision Camera Configuration
+      - HIKVISION_IP=${HIKVISION_IP:-169.255.172.209}
+      - HIKVISION_PORT=${HIKVISION_PORT:-84}
+      - HIKVISION_USERNAME=${HIKVISION_USERNAME:-admin}
+      - HIKVISION_PASSWORD=${HIKVISION_PASSWORD}
+      - HIKVISION_CHANNEL=${HIKVISION_CHANNEL:-1}
+
+      # Anthropic API
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+      # Slack Configuration
+      - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN}
+      - SLACK_CHANNEL=${SLACK_CHANNEL:-#sam-farm-cam-alerts}
+
+      # Application Settings
+      - CAPTURE_INTERVAL_SECONDS=${CAPTURE_INTERVAL_SECONDS:-10}
+      - SAVE_IMAGES=${SAVE_IMAGES:-true}
+      - IMAGES_DIR=/app/captured_images
+    volumes:
+      # Persist captured images
+      - ./captured_images:/app/captured_images
+      # Mount logs
+      - ./logs:/app/logs
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
