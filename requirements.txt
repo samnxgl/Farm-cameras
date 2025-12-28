@@ -1,5 +1,4 @@
 # Hikvision camera integration
-opencv-python>=4.8.0
 requests>=2.31.0
 
 # AI/ML for animal detection
