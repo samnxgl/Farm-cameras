@@ -1,0 +1,46 @@
+# Environment
+.env
+.venv/
+venv/
+env/
+ENV/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Captured images (optional - uncomment if you don't want to track)
+# captured_images/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
