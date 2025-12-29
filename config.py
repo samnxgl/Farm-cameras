@@ -26,6 +26,8 @@ class CameraConfig:
     channel: int
     profile: str  # Detection profile: "farm", "entrance"
     enabled: bool = True
+    rtsp_url: str = ""  # Direct RTSP URL (if provided, uses RTSP instead of HTTP)
+    connection_type: str = "http"  # "http" or "rtsp"
 
     def get_base_url(self) -> str:
         """Get the base URL for the camera."""
@@ -37,10 +39,23 @@ class CameraConfig:
 
     def get_rtsp_url(self) -> str:
         """Get the RTSP URL for streaming."""
+        if self.rtsp_url:
+            # If credentials not in URL, add them
+            if self.username and self.password and "@" not in self.rtsp_url:
+                # Insert credentials into RTSP URL
+                return self.rtsp_url.replace(
+                    "rtsp://", f"rtsp://{self.username}:{self.password}@"
+                )
+            return self.rtsp_url
+        # Construct from IP/port
         return (
             f"rtsp://{self.username}:{self.password}@"
             f"{self.ip}:554/Streaming/Channels/{self.channel}01"
         )
+
+    def uses_rtsp(self) -> bool:
+        """Check if this camera uses RTSP for capture."""
+        return self.connection_type == "rtsp" or bool(self.rtsp_url)
 
 
 class Config:
@@ -82,9 +97,10 @@ class Config:
                 )
             )
 
-        # Camera 2 (Home Entrance)
+        # Camera 2 (Home Entrance) - supports RTSP URL
         cam2_ip = os.getenv("CAMERA_2_IP", "")
-        if cam2_ip:
+        cam2_rtsp = os.getenv("CAMERA_2_RTSP_URL", "")
+        if cam2_ip or cam2_rtsp:
             cameras.append(
                 CameraConfig(
                     name=os.getenv("CAMERA_2_NAME", "Home Entrance"),
@@ -95,6 +111,8 @@ class Config:
                     channel=int(os.getenv("CAMERA_2_CHANNEL", "1")),
                     profile=os.getenv("CAMERA_2_PROFILE", "entrance"),
                     enabled=os.getenv("CAMERA_2_ENABLED", "true").lower() == "true",
+                    rtsp_url=cam2_rtsp,
+                    connection_type=os.getenv("CAMERA_2_CONNECTION", "rtsp" if cam2_rtsp else "http"),
                 )
             )
 
@@ -135,9 +153,9 @@ class Config:
             errors.append("At least one camera must be configured")
 
         for cam in cls.CAMERAS:
-            if not cam.ip:
-                errors.append(f"Camera '{cam.name}' is missing IP address")
-            if not cam.password:
+            if not cam.ip and not cam.rtsp_url:
+                errors.append(f"Camera '{cam.name}' is missing IP address or RTSP URL")
+            if not cam.password and not cam.rtsp_url:
                 errors.append(f"Camera '{cam.name}' is missing password")
 
         return errors

@@ -1,6 +1,9 @@
 # Hikvision camera integration
 requests>=2.31.0
 
+# RTSP stream capture
+opencv-python-headless>=4.8.0
+
 # AI/ML for animal detection
 anthropic>=0.39.0
 
